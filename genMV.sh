@@ -1,30 +1,36 @@
+#/bin/bash
 
-vboxmanage list ostype #liste les types d'os et comment ils sont nommés
+if [ $# -ne 2 ]; then
+    echo "PB"
+    exit 1
+fi
 
-# Donc pour creer une vm de type Linux/debian 12 apres avoir verifier le ID 
-# on fait :
-vboxmanage createvm --name "Debian12" --ostype Debian12 --register
+vm_name="$1"
 
-# Ainsi pour verifier que cest bien creer avec le bon type d'OS on fait :
-vboxmanage showvminfo "Debian12"
+if [ "$2" == "create" ]; then
+    if vboxmanage list vms | grep -q "\"$vm_name\""; then 
+        echo $vm_name "existe déjà, supp en cours..."
+        vboxmanage unregistervm "$vm_name" --delete
+        rm -rf "/home/$USER/VirtualBox VMs/$vm_name/"
+        echo $vm_name "supp !!!"
+    fi
 
-# Ainsi pour modifier les propriétés de la vm, avec une memoire de 4096,
-# on fait:
-vboxmanage modifyvm "Debian12" --memory 4096 #memory en MB
+    vboxmanage createvm --name "$vm_name" --ostype "Debian_64" --register
+    vboxmanage modifyvm "$vm_name" --memory 4096 --cpus 1 --nic1 nat --boot1 net --boot2 disk --boot3 none --boot4 none --vram 128
+    vboxmanage createhd --filename "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" --size 65536 --format VDI
+    vboxmanage storagectl "$vm_name" --name "SATA Controller" --add sata --controller IntelAhci
+    vboxmanage storageattach "$vm_name" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi"
+    
+    vboxmanage startvm "$vm_name" --type headless
 
+fi
 
-# Pour créer un stockage de 64GB 
-# on fait: 
-vboxmanage storagectl "Debian12" \
---name "sata01" --add sata --controller IntelAHCI
+if [ "$2" == "show" ]; then
+    vboxmanage list vms
+    exit 0
+fi
 
-# ensuite on attache le stockage 
-# on fait :
-vboxmanage storageattach "Debian12" \
---storagectl sata01 \
---port 0 \
---device 0 \
---type hdd \
---medium /'VirtualBox VMs'/Debian12/Debian12.vdi
-
-
+if [ "$2" == "delete" ]; then
+    vboxmanage unregistervm "$vm_name" --delete
+    exit 0
+fi
