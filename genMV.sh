@@ -28,6 +28,11 @@ if [ $# == 2 ]; then
         vboxmanage createhd --filename "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" --size $DD --format VDI > /dev/null 2>&1
         vboxmanage storagectl "$vm_name" --name "SATA Controller" --add sata --controller IntelAhci 
         vboxmanage storageattach "$vm_name" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" 
+        
+        #Création métadonnées
+        vboxmanage setextradata "$vm_name" "CreationDate" "$(date +"%Y-%m-%d %H:%M:%S")"
+        vboxmanage setextradata "$vm_name" "CreatedBy" "$USER"
+
         exit 0
     fi
 
@@ -62,23 +67,34 @@ if [ $# == 2 ]; then
         fi
         exit 0
     fi
-    #Erreur : Commande inconnué
-    echo "Commande incorrect"
-    exit 1
-fi
 
-#Vérification nombre argumenents
-if [ $# == 1 ]; then
     #Lister les VMs
     if [ "$action" == "L" ]; then
-        vboxmanage list vms
+        temp_file=$(mktemp)
+        vboxmanage list vms > "$temp_file"
+
+        echo -e "VMs list and metadata :\n"
+        while read -r line; do
+            vm=$(echo "$line" | cut -d '"' -f2)
+            date_creation=$(vboxmanage getextradata "$vm" "CreationDate" 2>/dev/null | cut -d' ' -f2-)
+            created_by=$(vboxmanage getextradata "$vm" "CreatedBy" 2>/dev/null | cut -d' ' -f2-)
+            [ -z "$date_creation" ] && date_creation="Unknow"
+            [ -z "$created_by" ] && created_by="Unknow"
+
+            echo "VM: $vm"
+            echo "  Creation : $date_creation"
+            echo -e "  By : $created_by \n"
+        done < "$temp_file"
+
+        rm "$temp_file"
         exit 0
     fi
+    
     #Erreur : Commande inconnué
     echo "Commande incorrect"
     exit 1
 fi
 
 #Erreur : Nombre arguments 
-else echo "Nombre d'arguments incorrect"
+echo "Nombre d'arguments incorrect"
 exit 1
