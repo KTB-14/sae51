@@ -10,7 +10,7 @@ action="$1"
 vm_name="$2"
 
 #Vérification nombre argumenents
-if [ $# == 2 ]; then
+if [ $# -eq 2 ] || [ $# -eq 1 ]; then
 
     #Création d'une nouvelle VM
     if [ "$action" == "N" ]; then
@@ -30,7 +30,7 @@ if [ $# == 2 ]; then
         vboxmanage storageattach "$vm_name" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" 
         
         #Création métadonnées
-        vboxmanage setextradata "$vm_name" "CreationDate" "$(date +"%Y-%m-%d %H:%M:%S")"
+        vboxmanage setextradata "$vm_name" "CreationDate" "$(TZ=Europe/Paris date +"%Y-%m-%d %H:%M:%S")"
         vboxmanage setextradata "$vm_name" "CreatedBy" "$USER"
 
         exit 0
@@ -61,7 +61,7 @@ if [ $# == 2 ]; then
             vboxmanage unregistervm "$vm_name" --delete
         fi
         vm_files=$(find ~/VirtualBox\ VMs/ -name "*$VM_NAME*" 2>/dev/null)
-        if [ -n "$VM_FILES" ]; then
+        if [ -n "$vm_files" ]; then
             rm -rf $vm_files
             echo "Suppresion des fichiers de la VM"
         fi
@@ -80,12 +80,18 @@ if [ $# == 2 ]; then
             created_by=$(vboxmanage getextradata "$vm" "CreatedBy" 2>/dev/null | cut -d' ' -f2-)
             [ -z "$date_creation" ] && date_creation="Unknow"
             [ -z "$created_by" ] && created_by="Unknow"
-
-            echo "VM: $vm"
-            echo "  Creation : $date_creation"
-            echo -e "  By : $created_by \n"
+        
+            if [ $# == 1 ]; then
+                echo "VM: $vm"
+                echo "  Creation : $date_creation"
+                echo -e "  By : $created_by \n"
+            fi
         done < "$temp_file"
-
+        if [ $# == 2 ]; then
+            echo "VM: $vm_name"
+            echo "  Creation : $date_creation"
+            echo -e "   By : $created_by \n"
+        fi
         rm "$temp_file"
         exit 0
     fi
