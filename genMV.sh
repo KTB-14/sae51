@@ -33,12 +33,47 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
         vboxmanage setextradata "$vm_name" "CreationDate" "$(TZ=Europe/Paris date +"%Y-%m-%d %H:%M:%S")"
         vboxmanage setextradata "$vm_name" "CreatedBy" "$USER"
 
+        # === PXE/TFTP VirtualBox (auto-download) ===
+        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
+        NETBOOT_URL="http://http.us.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/netboot.tar.gz"
+        NETBOOT_TAR="$TFTP_DIR/netboot.tar.gz"
+
+        mkdir -p "$TFTP_DIR"
+
+        # Téléchargement si pxelinux.0 absent
+        if [ ! -f "$TFTP_DIR/pxelinux.0" ]; then
+            echo "Téléchargement des fichiers netboot Debian..."
+            if command -v curl >/dev/null 2>&1; then
+                curl -L -o "$NETBOOT_TAR" "$NETBOOT_URL"
+            elif command -v wget >/dev/null 2>&1; then
+                wget -O "$NETBOOT_TAR" "$NETBOOT_URL"
+            else
+                echo "⚠️  Installe 'curl' ou 'wget' pour télécharger automatiquement."
+                exit 1
+            fi
+
+            echo "Extraction de netboot.tar.gz..."
+            tar -xzf "$NETBOOT_TAR" -C "$TFTP_DIR"
+            rm -f "$NETBOOT_TAR"
+        fi
+
+        # Vérification finale
+        if [ ! -f "$TFTP_DIR/pxelinux.0" ]; then
+            echo "⚠️  pxelinux.0 introuvable après extraction."
+            exit 1
+        fi
+
+        # Création du lien <VM>.pxe → pxelinux.0
+        ln -sf "pxelinux.0" "$TFTP_DIR/$vm_name.pxe"
+        # === fin ajout PXE/TFTP ===
+
+
         exit 0
     fi
 
     #Démarrage VM
     if [ "$action" == "D" ]; then
-        vboxmanage startvm "$vm_name"
+        vboxmanage startvm "$vm_name" --type gui
         exit 0
     fi
 
