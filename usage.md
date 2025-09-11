@@ -19,7 +19,7 @@ Il explique comment l’utiliser, détaille les fonctionnalités disponibles,
 ## 2. Installation du script
 1. Télécharger/copier le fichier `genMV.sh` (Linux) ou `genMV.bat` (Windows).  
 2. Sous Linux, rendre le script exécutable :  
-   ```sudo chmod u+x genMV.sh
+    sudo chmod u+x genMV.sh
 3. Possibilité de modifier les caractéristiques en modifiant la tête du script
 
 ---
@@ -33,15 +33,15 @@ Il explique comment l’utiliser, détaille les fonctionnalités disponibles,
     - D => Démarrer une VM (nom obligatoire)
     - A => Arrêter une VM (nom obligatoire)
 3. Exemple d'utilisation :
-    - #Lister toutes les VMs
+    - #Lister toutes les VMs  
     ./genMV.sh L
-    - #Lister une VM en particulier (Debian1)
+    - #Lister une VM en particulier (Debian1)  
     ./genMV.sh L Debian1
-    - #Créer une VM nommé "Debian1"
+    - #Créer une VM nommé "Debian1"  
     ./genMV.sh N Debian1
-    - #supprimer une VM nommé "Debian1"
+    - #supprimer une VM nommé "Debian1"  
     ./genMV.sh S Debian1
-    - #Demarrer une VM nommé "Debian1"
+    - #Demarrer une VM nommé "Debian1"  
     ./genMV.sh D Debian1
-    - #Arrêter une VM nommé "Debian1"
+    - #Arrêter une VM nommé "Debian1"  
     ./genMV.sh A Debian1
