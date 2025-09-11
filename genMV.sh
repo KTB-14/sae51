@@ -16,10 +16,8 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
     if [ "$action" == "N" ]; then
         #Vérification existence VM
         if vboxmanage list vms | grep -q "\"$vm_name\""; then 
-            echo $vm_name "existe déjà, suppression en cours..."
-            vboxmanage unregistervm "$vm_name" --delete > /dev/null 2>&1
-            rm -rf "/home/$USER/VirtualBox VMs/$vm_name/"
-            echo -e $vm_name "est supprimé !\n"
+            echo "Attention," $vm_name "existe déjà : Impossible de poursuivre"
+            exit 1
         fi
 
         #Configuration VM
