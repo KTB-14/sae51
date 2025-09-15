@@ -25,23 +25,46 @@ Il explique comment l’utiliser, détaille les fonctionnalités disponibles,
 ---
 
 ## 3. Utilisation du script
-1. Sythaxe à suivre : ./genMV.sh <action> [nom_VM]
-2. Actions disponibles :
-    - L => Lister toutes les VMs enregistrés (possibilité de préciser ou non le nom)
-    - N => Créer une nouvelle VM (nom obligatoire)
-    - S => Supprimer une VM existante (nom obligatoire)
-    - D => Démarrer une VM (nom obligatoire)
-    - A => Arrêter une VM (nom obligatoire)
-3. Exemple d'utilisation :
-    - #Lister toutes les VMs  
-    ./genMV.sh L
-    - #Lister une VM en particulier (Debian1)  
-    ./genMV.sh L Debian1
-    - #Créer une VM nommé "Debian1"  
-    ./genMV.sh N Debian1
-    - #supprimer une VM nommé "Debian1"  
-    ./genMV.sh S Debian1
-    - #Demarrer une VM nommé "Debian1"  
-    ./genMV.sh D Debian1
-    - #Arrêter une VM nommé "Debian1"  
-    ./genMV.sh A Debian1
+
+1. **Syntaxe à suivre :**  
+   `./genMV.sh <action> [nom_VM]`
+
+2. **Actions disponibles :**
+
+   - **L** : Lister toutes les VMs enregistrées (possibilité de préciser un nom de VM)  
+   - **N** : Créer une nouvelle VM (nom obligatoire)  
+   - **S** : Supprimer une VM existante (nom obligatoire)  
+   - **D** : Démarrer une VM (nom obligatoire)  
+   - **A** : Arrêter une VM (nom obligatoire)  
+
+3. **Exemples d'utilisation :**
+
+   - **Lister toutes les VMs**  
+     ```bash
+     ./genMV.sh L
+     ```
+
+   - **Lister une VM en particulier (exemple : Debian1)**  
+     ```bash
+     ./genMV.sh L Debian1
+     ```
+
+   - **Créer une VM nommée "Debian1"**  
+     ```bash
+     ./genMV.sh N Debian1
+     ```
+
+   - **Supprimer une VM nommée "Debian1"**  
+     ```bash
+     ./genMV.sh S Debian1
+     ```
+
+   - **Démarrer une VM nommée "Debian1"**  
+     ```bash
+     ./genMV.sh D Debian1
+     ```
+
+   - **Arrêter une VM nommée "Debian1"**  
+     ```bash
+     ./genMV.sh A Debian1
+     ```
