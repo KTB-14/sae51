@@ -140,20 +140,20 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
             echo "Erreur : Impossible de démarrer la machine"
             exit 1
         fi
-        exit 0
         echo "Machine virtuelle démarré !"
+        exit 0
     fi
 
     #Arrêt VM
     if [ "$action" == "A" ]; then
-        echo "Arrêt de la VM"
+        echo "Arrêt de la VM..."
         vboxmanage controlvm "$vm_name" poweroff > /dev/null 2>&1
         if ! [ $? == 0 ]; then 
             echo "Erreur : Impossible d'arrêter la machine"
             exit 1
         fi
-        exit 0
         echo "Machine virtuelle arrêté !"
+        exit 0
     fi
 
     #Suppression VM
@@ -169,13 +169,16 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
                 sleep 10
                 echo "Machine virtuelle arrêté !"
             fi
-            echo "Suppresion de la VM"
+            echo "Suppresion de la VM..."
             vboxmanage unregistervm "$vm_name" --delete > /dev/null 2>&1
             if ! [ $? == 0 ]; then 
                 echo "Erreur : Impossible de supprimer la machine"
                 exit 1
             fi
+            echo "Machine virtuelle supprimé !"
         fi
+
+        #Supprimer les fichiers de la VM s'il en reste des traces
         vm_files=$(find ~/VirtualBox\ VMs/ -name "*$vm_name*" 2>/dev/null)
         if [ -n "$vm_files" ]; then
             rm -rf "$vm_files"
@@ -212,8 +215,8 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
         done < "$temp_file"
         if [ $# == 2 ]; then
             echo "VM: $vm_name"
-            echo "  Creation : $date_creation"
-            echo -e "   By : $created_by \n"
+            echo "  Creation: $date_creation"
+            echo -e "   By: $created_by \n"
             #L'option '-e' permet à la commande d'interpréter des caractères comme \n (retour à la ligne)
         fi
         rm "$temp_file"
