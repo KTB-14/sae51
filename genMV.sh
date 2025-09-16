@@ -1,24 +1,29 @@
 #!/bin/bash
 
+#Vérification de l'existence de VirtualBox
+if ! command -v vboxmanage > /dev/null 2>&1; then 
+    #L'option '-v' permet d'utiliser le mode verbose qui affiche le résultat de la commande
+    echo: "Erreur : VBoxManage n'est pas installé ou est introuvable"
+    exit 1
+fi
+
 #Variables
 RAM=4096
 DD=65536
 CPU=1
 VRAM=128
 
+#Vérification si les variables sont bien des integer
+for var in RAM DD CPU VRAM; do
+    value=${!var}
+    if ! [[ $value =~ ^[0-9]+$ ]]; then
+        #utilisation d'un regex pour filtrer seulement les entiers
+        echo "Erreur : $var doit être un entier (valeur actuelle: '$value')"
+        exit 1
+    fi
+done
 
-# --- Auto-install (preseed) ---
-PRESEED_DIR="$HOME/.local/share/vbox-preseed"
-PRESEED_PORT=8080
-PRESEED_HOST="10.0.2.2"      # l'hôte vu depuis la VM en NAT
-PRESEED_FILE="debian-base.cfg"
-INSTALL_USER="admin"
-INSTALL_PASS="admin"
-HOSTNAME_DEF="vbox-debian"
-
-
-
-
+#Récupération des arguments
 action="$1"
 vm_name="$2"
 
@@ -27,72 +32,128 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
 
     #Création d'une nouvelle VM
     if [ "$action" == "N" ]; then
-        #Vérification existence VM
-        if vboxmanage list vms | grep -q "\"$vm_name\""; then 
-            echo "Attention," $vm_name "existe déjà : Impossible de poursuivre"
+
+        #Création VM
+        vboxmanage createvm --name "$vm_name" --ostype "Debian_64" --register > /dev/null 2>&1
+        if [ $? -ne 0 ]; then 
+            echo "Attention : la machine '$vm_name' existe déjà ou une erreur est survenue."
             exit 1
         fi
+        echo "La machine '$vm_name' en cours de création..."
 
-        #Configuration VM
-        vboxmanage createvm --name "$vm_name" --ostype "Debian_64" --register
-        vboxmanage modifyvm "$vm_name" --memory $RAM --cpus $CPU --nic1 nat --boot1 net --boot2 disk --boot3 none --boot4 none --vram $VRAM
-        vboxmanage createhd --filename "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" --size $DD --format VDI > /dev/null 2>&1
-        vboxmanage storagectl "$vm_name" --name "SATA Controller" --add sata --controller IntelAhci 
-        vboxmanage storageattach "$vm_name" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" 
+        #Modifications caractéristiques VM
+        vboxmanage modifyvm "$vm_name" --memory $RAM --cpus $CPU --nic1 nat --boot1 net --boot2 disk --boot3 none --boot4 none --vram $VRAM \
+            || { echo "Erreur : Impossible de modifier les caractéristique de la machine"; exit 1; }
+
+        #Ajout du DD
+        vboxmanage createhd --filename "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" --size $DD --format VDI > /dev/null 2>&1 \
+            || { echo "Erreur : Impossible de créer le Disque Dur"; exit 1; }
+
+        #Ajout du controlleur SATA
+        vboxmanage storagectl "$vm_name" --name "SATA Controller" --add sata --controller IntelAhci > /dev/null 2>&1  \
+            || { echo "Erreur: Impossible de créer le contrôleur SATA"; exit 1; }
+        
+        #Attachement du DD
+        vboxmanage storageattach "$vm_name" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "/home/$USER/VirtualBox VMs/$vm_name/$vm_name.vdi" > /dev/null 2>&1 \
+            || { echo "Erreur : Impossible d'attacher le disque dur à la VM"; exit 1; }
         
         #Création métadonnées
-        vboxmanage setextradata "$vm_name" "CreationDate" "$(TZ=Europe/Paris date +"%Y-%m-%d %H:%M:%S")"
-        vboxmanage setextradata "$vm_name" "CreatedBy" "$USER"
+        vboxmanage setextradata "$vm_name" "CreationDate" "$(TZ=Europe/Paris date +"%Y-%m-%d %H:%M:%S")" \
+            || { echo "Erreur : Impossible d'ajouter la date de création"; exit 1; }
+        vboxmanage setextradata "$vm_name" "CreatedBy" "$USER" \
+            || { echo "Erreur : Impossible d'ajouter l'information de l'utilisateur"; exit 1; }
 
         # === PXE/TFTP VirtualBox (auto-download) ===
-        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
+        
+        #-- Lien de téléchargement de l'archive netboot.tar.gz
         NETBOOT_URL="http://http.us.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/netboot.tar.gz"
+        #   Cette archive contient les fichiers nécessaires pour le boot PXE de l'installateur Debian
+
+        #-- Répertoire TFTP utilisé par VirtualBox
+        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
+
+        #-- Chemin absolu du répertoire où les fichiers de netboot seront extraits
         NETBOOT_TAR="$TFTP_DIR/netboot.tar.gz"
 
+        #-- Création du répertoire TFTP s'il n'existe pas
         mkdir -p "$TFTP_DIR"
+        #L'option '-p' permet de créer les dossiers parents si besoin et empêche l'arrêt du programme si le dossier existe déjà
 
         # Téléchargement si pxelinux.0 absent
-        if [ ! -f "$TFTP_DIR/pxelinux.0" ]; then
-            echo "Téléchargement des fichiers netboot Debian..."
-            if command -v curl >/dev/null 2>&1; then
+        if test ! -f "$TFTP_DIR/pxelinux.0"; then
+
+            # test [ condition ] : est une commande qui permet de vérifier une condition
+            # ! : négation (si la condition est fausse)
+            # -f : option qui vérifie si le fichier existe et est un fichier régulier 
+            #      un fichier regulier est un fichier qui n'est pas un répertoire, un lien symbolique, ou un autre type spécial de fichier
+
+            if which curl 2>&1 > /dev/null ; then
                 curl -L -o "$NETBOOT_TAR" "$NETBOOT_URL"
-            elif command -v wget >/dev/null 2>&1; then
+                # -L : permet de suivre les redirections (si l'URL redirige vers une autre URL)
+                # -o : permet de choisir le nom du fichier de sortie
+            elif which wget 2>&1 > /dev/null ; then
                 wget -O "$NETBOOT_TAR" "$NETBOOT_URL"
+                # -O : permet de choisir le nom du fichier de sortie
             else
-                echo "!!! Installe 'curl' ou 'wget' pour télécharger automatiquement."
+                echo "!!! Les commandes 'curl' ou 'wget' ne sont pas installées."
+                echo " Veuillez les installer et réessayer"
                 exit 1
-            fi
+            fi  
 
             echo "Extraction de netboot.tar.gz..."
             tar -xzf "$NETBOOT_TAR" -C "$TFTP_DIR"
+            #L'option '-x' permet l'extraction du contenu
+            #L'option '-z' permet de spécifier le type d'archive (.gz)
+            #L'option '-f' permet d'indiquer le nom du fichier à extraire
+            #L'option '-C' permet de changer de repertoire et extraire directement dans ce dossier (ici "$TFTP_DIR")
+    
             rm -f "$NETBOOT_TAR"
+            #L'option '-f' force la suppression du fichier
         fi
 
         # Vérification finale
         if [ ! -f "$TFTP_DIR/pxelinux.0" ]; then
-            echo "!!! pxelinux.0 introuvable après extraction."
+            echo " pxelinux.0 introuvable après extraction."
             exit 1
         fi
 
-        # Création du lien <VM>.pxe → pxelinux.0
+        #-- Création du lien <VM>.pxe avec pxelinux.0
         ln -sf "pxelinux.0" "$TFTP_DIR/$vm_name.pxe"
+
+            # ln : Création d’un lien symbolique vers pxelinux.0
+            # -s : lien symbolique (comme un raccourci)
+            # -f : force la création (écrase l’ancien lien si présent)
+            # Donc chaque VM aura son propre fichier de boot ($vm_name.pxe)
+            # "pxelinux.0" est la cible réelle (le fichier du boot PXE).
+            # "$TFTP_DIR/$vm_name.pxe" est le nom du lien symbolique qu’on crée.
+        
         # === fin ajout PXE/TFTP ===
 
-
+        echo "Machine créé avec succès et boot initialisé !"
         exit 0
     fi
 
     #Démarrage VM
     if [ "$action" == "D" ]; then
-        vboxmanage startvm "$vm_name" --type gui
+        vboxmanage startvm "$vm_name" --type gui > /dev/null 2>&1
+        if ! [ $? == 0 ]; then 
+            echo "Erreur : Impossible de démarrer la machine"
+            exit 1
+        fi
         exit 0
+        echo "Machine virtuelle démarré !"
     fi
 
     #Arrêt VM
     if [ "$action" == "A" ]; then
         echo "Arrêt de la VM"
-        vboxmanage controlvm "$vm_name" poweroff
+        vboxmanage controlvm "$vm_name" poweroff > /dev/null 2>&1
+        if ! [ $? == 0 ]; then 
+            echo "Erreur : Impossible d'arrêter la machine"
+            exit 1
+        fi
         exit 0
+        echo "Machine virtuelle arrêté !"
     fi
 
     #Suppression VM
@@ -100,15 +161,26 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
         if vboxmanage list vms | grep -q "\"$vm_name\""; then
             if vboxmanage list runningvms | grep -q "\"$vm_name\""; then 
                 echo "Arrêt de la VM..."
-                vboxmanage controlvm "$vm_name" poweroff
+                vboxmanage controlvm "$vm_name" poweroff > /dev/null 2>&1
+                if ! [ $? == 0 ]; then 
+                    echo "Erreur : Impossible d'arrêter la machine"
+                    exit 1
+                fi
                 sleep 10
+                echo "Machine virtuelle arrêté !"
             fi
             echo "Suppresion de la VM"
-            vboxmanage unregistervm "$vm_name" --delete
+            vboxmanage unregistervm "$vm_name" --delete > /dev/null 2>&1
+            if ! [ $? == 0 ]; then 
+                echo "Erreur : Impossible de supprimer la machine"
+                exit 1
+            fi
         fi
-        vm_files=$(find ~/VirtualBox\ VMs/ -name "*$VM_NAME*" 2>/dev/null)
+        vm_files=$(find ~/VirtualBox\ VMs/ -name "*$vm_name*" 2>/dev/null)
         if [ -n "$vm_files" ]; then
-            rm -rf $vm_files
+            rm -rf "$vm_files"
+            #L'option '-r' permet de supprimer de façon récusrive (dossier et contenu)
+            #L'option '-f' force l'exécution de la commande
             echo "Suppresion des fichiers de la VM"
         fi
         exit 0
@@ -120,110 +192,34 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
         vboxmanage list vms > "$temp_file"
 
         echo -e "VMs list and metadata :\n"
+        #L'option '-e' permet à la commande d'interpréter des caractères comme \n (retour à la ligne)
         while read -r line; do
+        #l'option '-r' empêche la commande read d'interprêter les '\'
             vm=$(echo "$line" | cut -d '"' -f2)
+            #L'option '-d' indique quel est le délimiteur de coupure, dans notre cas il s'agit de : " 
             date_creation=$(vboxmanage getextradata "$vm" "CreationDate" 2>/dev/null | cut -d' ' -f2-)
             created_by=$(vboxmanage getextradata "$vm" "CreatedBy" 2>/dev/null | cut -d' ' -f2-)
             [ -z "$date_creation" ] && date_creation="Unknow"
             [ -z "$created_by" ] && created_by="Unknow"
+            #L'option '-z' vérifie si la chaine est vide
         
             if [ $# == 1 ]; then
                 echo "VM: $vm"
                 echo "  Creation : $date_creation"
                 echo -e "  By : $created_by \n"
+                #L'option '-e' permet à la commande d'interpréter des caractères comme \n (retour à la ligne)
             fi
         done < "$temp_file"
         if [ $# == 2 ]; then
             echo "VM: $vm_name"
             echo "  Creation : $date_creation"
             echo -e "   By : $created_by \n"
+            #L'option '-e' permet à la commande d'interpréter des caractères comme \n (retour à la ligne)
         fi
         rm "$temp_file"
         exit 0
     fi
-
-#===================================================================================
-    # Installation auto (preseed + HTTP + PXE)
-    if [ "$action" == "I" ]; then
-        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
-        mkdir -p "$TFTP_DIR/pxelinux.cfg" "$PRESEED_DIR"
-
-        # 2.1 Écrire un preseed minimal (login manuel, pas d'autologin)
-        cat > "$PRESEED_DIR/$PRESEED_FILE" <<EOF
-### Localisation
-d-i debian-installer/locale string fr_FR.UTF-8
-d-i keyboard-configuration/xkb-keymap select fr
-
-### Réseau
-d-i netcfg/choose_interface select auto
-d-i netcfg/get_hostname string ${HOSTNAME_DEF}
-d-i netcfg/get_domain string local
-
-### Miroir
-d-i mirror/country string manual
-d-i mirror/http/hostname string deb.debian.org
-d-i mirror/http/directory string /debian
-d-i mirror/http/proxy string
-
-### Utilisateur (admin/admin à changer ensuite)
-d-i passwd/root-login boolean false
-d-i passwd/user-fullname string ${INSTALL_USER}
-d-i passwd/username string ${INSTALL_USER}
-d-i passwd/user-password password ${INSTALL_PASS}
-d-i passwd/user-password-again password ${INSTALL_PASS}
-
-### Horloge
-d-i time/zone string Europe/Paris
-d-i clock-setup/ntp boolean true
-
-### Partitionnement auto (disque entier)
-d-i partman-auto/method string regular
-d-i partman-auto/choose_recipe select atomic
-d-i partman-auto/disk string /dev/sda
-d-i partman/confirm_write_new_label boolean true
-d-i partman/choose_partition select finish
-d-i partman/confirm boolean true
-d-i partman/confirm_nooverwrite boolean true
-
-### Paquets
-tasksel tasksel/first multiselect standard, ssh-server
-d-i pkgsel/include string sudo curl ca-certificates
-
-### Grub
-d-i grub-installer/only_debian boolean true
-d-i grub-installer/with_other_os boolean true
-
-### Fin
-d-i finish-install/reboot_in_progress note
-EOF
-
-        # 2.2 Lancer un mini serveur HTTP sur l'hôte pour servir le preseed
-        pkill -f "python3 -m http.server $PRESEED_PORT" >/dev/null 2>&1 || true
-        ( cd "$PRESEED_DIR" && nohup python3 -m http.server $PRESEED_PORT >/tmp/preseed_http.log 2>&1 & echo $! > /tmp/preseed_http.pid )
-        echo "HTTP preseed sur http://$PRESEED_HOST:$PRESEED_PORT/$PRESEED_FILE (PID $(cat /tmp/preseed_http.pid))"
-
-        # 2.3 Écrire le menu PXE par défaut (pointe sur netboot + preseed HTTP)
-        cat > "$TFTP_DIR/pxelinux.cfg/default" <<EOF
-DEFAULT auto
-PROMPT 0
-TIMEOUT 10
-
-LABEL auto
-    MENU LABEL Debian Auto Install (preseed)
-    KERNEL debian-installer/amd64/linux
-    APPEND initrd=debian-installer/amd64/initrd.gz auto=true priority=critical \
-           preseed/url=http://$PRESEED_HOST:$PRESEED_PORT/$PRESEED_FILE \
-           netcfg/choose_interface=auto \
-           debian-installer=fr locale=fr_FR.UTF-8 keyboard-configuration/xkb-keymap=fr
-EOF
-
-        echo "PXE prêt. Enchaîne: ./genMV.sh N \"$vm_name\" puis ./genMV.sh D \"$vm_name\""
-        exit 0
-    fi
-
-
-#===================================================================================
-
+    
     #Erreur : Commande inconnué
     echo "Commande incorrect"
     exit 1
