@@ -64,35 +64,49 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
             || { echo "Erreur : Impossible d'ajouter l'information de l'utilisateur"; exit 1; }
 
         # === PXE/TFTP VirtualBox (auto-download) ===
-        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
+        
+        #-- Lien de téléchargement de l'archive netboot.tar.gz
         NETBOOT_URL="http://http.us.debian.org/debian/dists/trixie/main/installer-amd64/current/images/netboot/netboot.tar.gz"
+        #   Cette archive contient les fichiers nécessaires pour le boot PXE de l'installateur Debian
+
+        #-- Répertoire TFTP utilisé par VirtualBox
+        TFTP_DIR="$HOME/.config/VirtualBox/TFTP"
+
+        #-- Chemin absolu du répertoire où les fichiers de netboot seront extraits
         NETBOOT_TAR="$TFTP_DIR/netboot.tar.gz"
 
+        #-- Création du répertoire TFTP s'il n'existe pas
         mkdir -p "$TFTP_DIR"
         #L'option '-p' permet de créer les dossiers parents si besoin et empêche l'arrêt du programme si le dossier existe déjà
 
         # Téléchargement si pxelinux.0 absent
-        if [ ! -f "$TFTP_DIR/pxelinux.0" ]; then
-            echo "Téléchargement des fichiers netboot Debian..."
-            if command -v curl >/dev/null 2>&1; then
-            #L'option '-v' permet d'utiliser le mode verbose qui affiche le résultat de la commande
+        if test ! -f "$TFTP_DIR/pxelinux.0"; then
+
+            # test [ condition ] : est une commande qui permet de vérifier une condition
+            # ! : négation (si la condition est fausse)
+            # -f : option qui vérifie si le fichier existe et est un fichier régulier 
+            #      un fichier regulier est un fichier qui n'est pas un répertoire, un lien symbolique, ou un autre type spécial de fichier
+
+            if which curl 2>&1 > /dev/null ; then
                 curl -L -o "$NETBOOT_TAR" "$NETBOOT_URL"
-                #L'option '-L' permet à curl de suivre les redirections (évite les erreurs)
-                #L'option '-o' permet l'enregistrement dans un fichier ($NETBOOT_TAR > $HOME/.config/VirtualBox/TFTP/netboot.tar.gz)
-            elif command -v wget >/dev/null 2>&1; then
-            #L'option '-v' permet d'utiliser le mode verbose qui affiche le résultat de la commande
+                # -L : permet de suivre les redirections (si l'URL redirige vers une autre URL)
+                # -o : permet de choisir le nom du fichier de sortie
+            elif which wget 2>&1 > /dev/null ; then
                 wget -O "$NETBOOT_TAR" "$NETBOOT_URL"
-                #L'option '-O' permet l'enregistrement dans un fichier ($NETBOOT_TAR > $HOME/.config/VirtualBox/TFTP/netboot.tar.gz)
+                # -O : permet de choisir le nom du fichier de sortie
             else
-                echo " Installe 'curl' ou 'wget' pour télécharger automatiquement !"
+                echo "!!! Les commandes 'curl' ou 'wget' ne sont pas installées."
+                echo " Veuillez les installer et réessayer"
                 exit 1
-            fi
+            fi  
 
             echo "Extraction de netboot.tar.gz..."
             tar -xzf "$NETBOOT_TAR" -C "$TFTP_DIR"
             #L'option '-x' permet l'extraction du contenu
             #L'option '-z' permet de spécifier le type d'archive (.gz)
             #L'option '-f' permet d'indiquer le nom du fichier à extraire
+            #L'option '-C' permet de changer de repertoire et extraire directement dans ce dossier (ici "$TFTP_DIR")
+    
             rm -f "$NETBOOT_TAR"
             #L'option '-f' force la suppression du fichier
         fi
@@ -103,10 +117,15 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
             exit 1
         fi
 
-        # Création du lien <VM>.pxe → pxelinux.0
+        #-- Création du lien <VM>.pxe avec pxelinux.0
         ln -sf "pxelinux.0" "$TFTP_DIR/$vm_name.pxe"
-        #L'option '-s' crée un lien symbolique
-        #L'option '-f' force l'exécution de la commande
+
+            # ln : Création d’un lien symbolique vers pxelinux.0
+            # -s : lien symbolique (comme un raccourci)
+            # -f : force la création (écrase l’ancien lien si présent)
+            # Donc chaque VM aura son propre fichier de boot ($vm_name.pxe)
+            # "pxelinux.0" est la cible réelle (le fichier du boot PXE).
+            # "$TFTP_DIR/$vm_name.pxe" est le nom du lien symbolique qu’on crée.
         
         # === fin ajout PXE/TFTP ===
 
