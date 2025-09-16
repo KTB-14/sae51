@@ -158,6 +158,8 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
             fi
             echo "Machine virtuelle supprimé !"
         fi
+
+        #Supprimer les fichiers de la VM s'il en reste des traces
         vm_files=$(find ~/VirtualBox\ VMs/ -name "*$vm_name*" 2>/dev/null)
         if [ -n "$vm_files" ]; then
             rm -rf "$vm_files"
@@ -194,8 +196,8 @@ if [ $# -eq 2 ] || [ $# -eq 1 ]; then
         done < "$temp_file"
         if [ $# == 2 ]; then
             echo "VM: $vm_name"
-            echo "  Creation : $date_creation"
-            echo -e "   By : $created_by \n"
+            echo "  Creation: $date_creation"
+            echo -e "   By: $created_by \n"
             #L'option '-e' permet à la commande d'interpréter des caractères comme \n (retour à la ligne)
         fi
         rm "$temp_file"

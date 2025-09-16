@@ -12,7 +12,12 @@ Il consiste à développer un script permettant **d’automatiser la création e
 ## Fichiers principaux
 
 - **[`genMV.sh`](./genMV.sh)**  
-  → Le script principal à exécuter pour créer, lister, démarrer, arrêter et supprimer des machines virtuelles.  
+  → Le script principal pour un OS **Linux** à exécuter pour créer, lister, démarrer, arrêter et supprimer des machines virtuelles.  
+  → Toutes les fonctionnalités développées
+
+- **[`genMV.bat`](./genMV.bat)**
+  → Le script principal pour un OS **Windows** à exécuter pour créer, lister, démarrer, arrêter et supprimer des machines virtuelles. 
+  → Possibilités limitées
 
 - **[`usage.md`](./usage.md)**  
   → La documentation utilisateur expliquant en détail comment utiliser le script, ses fonctionnalités et ses limites.  

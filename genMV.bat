@@ -1,4 +1,4 @@
-@echo off
+@echo on
 
 rem Vérification de l'existence de VboxManage
 set "VBOX_PATH=C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
@@ -7,7 +7,6 @@ if not exist "%VBOX_PATH%" (
     exit /b 1
     rem L'option '/b' permet de quitter seulement le script et de ne pas fermer la fenêtre
 )
-echo VBoxManage existe bien !
 
 rem Variables
 set RAM=4096
@@ -19,11 +18,13 @@ rem Récupération des arguments
 set action=%1
 set vm_name=%2
 
+rem Vérifie qu'une action est demandé
 if "%action%"=="" (
-    echo Nombre d'arguments incorrect
+    echo Nombre d'arguments incorrect: Choisissez une action
     exit /b 1
 )
 
+rem Création d'une nouvelle VM
 if "%action%"=="N" (
     rem Création de la VM
     "%VBOX_PATH%" createvm --name "%vm_name%" --ostype "Debian_64" --register >nul 
@@ -35,7 +36,7 @@ if "%action%"=="N" (
     )
     echo La machine %vm_name% est en cours de creation...
 
-    rem Modifications caractéristiques VM
+    rem Modifications caractéristiques de la VM
     "%VBOX_PATH%" modifyvm "%vm_name%" --memory %RAM% --cpus %CPU% --nic1 nat --boot1 net --boot2 disk --boot3 none --boot4 none --vram %VRAM% >nul || (
         echo Erreur : Impossible de modifier les caracteristiques de la machine 
         exit /b 1
@@ -64,10 +65,8 @@ if "%action%"=="N" (
     "%VBOX_PATH%" setextradata "%vm_name%" "CreationDate" "%CreationDate%"
     "%VBOX_PATH%" setextradata "%vm_name%" "CreateBy" "%USERNAME%"
 
-    rem === PXE/TFTP VirtualBox (auto-download)
-
-
-    echo Machine cree avec succes et ...
+    echo Machine cree avec succes mais non boot
+    exit /b 0
 )
 
 rem Démarrage VM
@@ -102,20 +101,11 @@ if "%action%"=="S" (
 
 rem Lister les VMs
 if "%action%"=="L" (
-    if "%vm_name%"=="" (
-        rem Nom de VM non précisé
-        echo Liste des VMs :
-        "%VBOX_PATH%" list vms >nul
-        if %errorlevel% neq 0 (
-            echo Erreur : Impossible de lister les VMs
-            exit /b 1
-        ) else (
-            "%VBOX_PATH%" list vms
-        )
-        exit /b 0
-    ) else (
-        rem Nom de VM précisé
-        echo Feature en cours...
-        exit /b 0
-    )
+    echo VMs list and metadata :
+    echo.
+    "%VBOX_PATH%" list vms
+    exit /b 0
 )
+
+echo Probleme dans la commande : Mauvaise action demande
+exit /b 1
