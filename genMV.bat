@@ -1,4 +1,4 @@
-@echo on
+@echo off
 
 rem Vérification de l'existence de VboxManage
 set "VBOX_PATH=C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
